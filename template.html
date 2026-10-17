@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Analyst Agent Dashboard</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1a1d23;--mu:#6b7280;--bd:#e3e6ea;--ac:#2563eb;--ok:#16a34a;--bad:#dc2626;--wa:#d97706;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#181b21;--tx:#e8eaee;--mu:#9aa1ad;--bd:#2a2e36;--ac:#5b9dff;--ok:#4ade80;--bad:#f87171;--wa:#fbbf24;color-scheme:dark}}
+*{box-sizing:border-box}body{margin:0 auto;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:16px;max-width:1100px}
+h1{font-size:20px;margin:0}h2{font-size:13px;margin:0 0 10px;color:var(--mu);text-transform:uppercase;letter-spacing:.04em}
+.top{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center;margin-bottom:12px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}.tabs button{border:1px solid var(--bd);background:var(--card);color:var(--tx);padding:7px 14px;border-radius:20px;cursor:pointer;font:inherit}
+.tabs button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.src{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;font-size:12px;color:var(--mu)}.src span{border:1px solid var(--bd);background:var(--card);border-radius:6px;padding:3px 8px}
+.grid{display:grid;gap:12px}.k{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-bottom:12px}.two{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px}.kv{font-size:26px;font-weight:700}.kl{color:var(--mu);font-size:13px}.d{font-size:13px;font-weight:600}.up{color:var(--ok)}.dn{color:var(--bad)}
+svg{width:100%;height:auto;display:block}svg text{fill:var(--mu);font-size:11px}
+.ins{list-style:none;margin:0;padding:0}.ins li{padding:9px 0;border-top:1px solid var(--bd);display:flex;gap:10px}.ins li:first-child{border:0}
+.tag{font-size:11px;font-weight:700;border-radius:4px;padding:2px 6px;height:fit-content}
+.RISK{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}.WIN{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}.OPP{background:color-mix(in srgb,var(--wa) 18%,transparent);color:var(--wa)}
+.ask{display:flex;gap:8px;margin-top:12px}.ask input{flex:1;padding:9px 12px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font:inherit}
+.ask button{padding:9px 16px;border-radius:8px;border:0;background:var(--ac);color:#fff;cursor:pointer;font:inherit}#ans{margin-top:8px;font-size:14px;white-space:pre-wrap}
+.sec{background:var(--card)!important;color:var(--tx)!important;border:1px solid var(--bd)!important}.msg{border-top:1px solid var(--bd);padding:10px 0}.qq{font-weight:600}.msg p{margin:6px 0;white-space:pre-wrap}details{font-size:12px;color:var(--mu)}pre{white-space:pre-wrap;margin:4px 0}.pin{border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:6px;padding:3px 10px;cursor:pointer;font:inherit;font-size:12px}
+</style></head><body>
+<div class="top"><div><h1>AI Analyst Agent</h1><div class="kl" id="meta"></div></div><div class="tabs" id="tabs"></div></div>
+<div class="src" id="src"></div><div class="grid k" id="kpis"></div>
+<div class="grid two"><div class="card"><h2 id="c1t"></h2><div id="c1"></div></div><div class="card"><h2 id="c2t"></h2><div id="c2"></div></div></div>
+<div class="card" style="margin-top:12px"><h2>Agent insights</h2><ul class="ins" id="ins"></ul>
+</div>
+<div class="card" style="margin-top:12px"><h2>Ask the agent</h2><div id="chat"></div>
+<div class="ask"><input id="q" placeholder="Ask a question, then follow up: “now by product”, “only last 3 months”…"><button id="go">Ask</button><button id="clr" class="sec">New topic</button></div></div>
+<div id="pinwrap" style="display:none;margin-top:12px"><h2>Pinned charts</h2><div class="grid two" id="pins"></div></div>
+<script>
+const D=__DATA__;let cur=Object.keys(D.roles)[0];const $=id=>document.getElementById(id);
+const nf=(v,f)=>f==="pct"?(v*100).toFixed(0)+"%":f==="num"?v.toFixed(1):(f==="money"?"$":"")+new Intl.NumberFormat("en",{notation:"compact",maximumFractionDigits:1}).format(v);
+function line(m){const w=480,h=210,p=40,v=m.values,mn=Math.min(...v)*.95,mx=Math.max(...v)*1.03,n=v.length;
+const x=i=>p+i*(w-p-10)/(n-1),y=a=>h-24-(a-mn)/(mx-mn||1)*(h-44);let s=`<svg viewBox="0 0 ${w} ${h}">`;
+m.labels.forEach((l,i)=>{if(i%Math.ceil(n/6)==0||i==n-1)s+=`<text x="${x(i)}" y="${h-6}" text-anchor="middle">${l.slice(2)}</text>`});
+[mn,(mn+mx)/2,mx].forEach(a=>s+=`<line x1="${p}" x2="${w-10}" y1="${y(a)}" y2="${y(a)}" stroke="var(--bd)"/><text x="${p-4}" y="${y(a)+4}" text-anchor="end">${nf(a,m.fmt)}</text>`);
+s+=`<polyline fill="none" stroke="var(--ac)" stroke-width="2.5" points="${v.map((a,i)=>x(i)+","+y(a)).join(" ")}"/>`;
+return s+`<circle cx="${x(n-1)}" cy="${y(v[n-1])}" r="4" fill="var(--ac)"/></svg>`}
+function bar(b){const w=480,h=210,r=b.rows,mx=Math.max(...r.map(x=>x.v))*1.15||1,bw=(w-40)/r.length;let s=`<svg viewBox="0 0 ${w} ${h}">`;
+r.forEach((o,i)=>{const bh=o.v/mx*(h-50),x=30+i*bw+bw*.15,ch=o.p?(o.v/o.p-1)*100:0,c=Math.abs(ch)<10?"var(--ac)":ch<0?"var(--bad)":"var(--ok)";
+s+=`<rect x="${x}" y="${h-24-bh}" width="${bw*.7}" height="${bh}" rx="4" fill="${c}"/><text x="${x+bw*.35}" y="${h-24-bh-5}" text-anchor="middle" style="fill:var(--tx)">${nf(o.v,b.fmt)}</text><text x="${x+bw*.35}" y="${h-6}" text-anchor="middle">${o.label}</text>`});return s+"</svg>"}
+function render(){const R=D.roles[cur];
+$("meta").textContent=`Generated ${D.generated} · ${D.ai?"AI-written insights":"rule-based insights (set ANTHROPIC_API_KEY for AI)"}`;
+$("tabs").innerHTML=Object.keys(D.roles).map(k=>`<button class="${k==cur?"on":""}" onclick="cur='${k}';render()">${k}</button>`).join("");
+$("src").innerHTML=D.sources.map(s=>`<span>● ${s}</span>`).join("");
+$("kpis").innerHTML=R.kpis.map(k=>`<div class="card"><div class="kl">${k.label}</div><div class="kv">${k.shown}</div><div class="d ${k.good?"up":"dn"}">${k.delta}</div></div>`).join("");
+if(R.line){$("c1t").textContent=R.line.label+" (monthly)";$("c1").innerHTML=line(R.line)}
+if(R.bar){$("c2t").textContent=R.bar.title;$("c2").innerHTML=bar(R.bar)}
+$("ins").innerHTML=R.insights.map(i=>`<li><span class="tag ${i.tag}">${i.tag}</span><span>${i.text}</span></li>`).join("")}
+let hist=[],ANS=[],pins=[];try{pins=JSON.parse(localStorage.getItem("pins")||"[]")}catch(e){}
+const esc=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const chartHTML=c=>!c?"":c.type==="line"?line({labels:c.labels,values:c.values,fmt:c.fmt,label:c.title}):bar({fmt:c.fmt,rows:c.rows});
+function drawPins(){$("pinwrap").style.display=pins.length?"block":"none";
+$("pins").innerHTML=pins.map((p,i)=>`<div class="card"><h2>${esc(p.chart.title)}</h2>${chartHTML(p.chart)}<div class="kl">Q: ${esc(p.q)} <button class="pin" onclick="unpin(${i})">Remove</button></div></div>`).join("")}
+function save(){try{localStorage.setItem("pins",JSON.stringify(pins))}catch(e){}drawPins()}
+function pin(i){pins.push(ANS[i]);save()}function unpin(i){pins.splice(i,1);save()}
+async function ask(){const q=$("q").value.trim();if(!q)return;$("q").value="";const box=document.createElement("div");box.className="msg";
+box.innerHTML=`<div class="qq">${esc(q)}</div><p>Thinking…</p>`;$("chat").appendChild(box);
+try{const r=await fetch("/ask",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({q,history:hist})});const o=await r.json();
+const n=ANS.push({q,chart:o.chart})-1;if(o.sql)hist.push({q,sql:o.sql});
+box.innerHTML=`<div class="qq">${esc(q)}</div><p>${esc(o.answer)}</p>${chartHTML(o.chart)}${o.chart?`<button class="pin" onclick="pin(${n})">Pin to dashboard</button>`:""}${o.sql?`<details><summary>SQL used</summary><pre>${esc(o.sql)}</pre></details>`:""}`}
+catch(e){box.innerHTML=`<div class="qq">${esc(q)}</div><p>Can't reach the agent. Start it with: python agent.py serve, then open http://localhost:8000</p>`}}
+$("go").onclick=ask;$("q").onkeydown=e=>{if(e.key==="Enter")ask()};$("clr").onclick=()=>{hist=[];$("chat").innerHTML=""};
+drawPins();
+render();
+</script></body></html>

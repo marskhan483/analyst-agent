@@ -1,0 +1,49 @@
+# ---- 1. DATA SOURCES: Excel, CSV, or any SQL database (SQLAlchemy URL) ----
+# Each source becomes a table named after `name`. Column names are lower-cased, spaces -> _
+sources:
+  - {name: sales,    type: excel, path: data/sales.xlsx, sheet: Sales}
+  - {name: expenses, type: sql, url: "sqlite:///{base}/data/company.db", query: "SELECT * FROM expenses"}
+  - {name: tickets,  type: sql, url: "sqlite:///{base}/data/company.db", query: "SELECT * FROM tickets"}
+  # - {name: leads, type: csv, path: data/leads.csv}
+  # - {name: erp, type: sql, url: "postgresql+psycopg2://user:pass@host/db", query: "SELECT ..."}
+
+z_threshold: 1.8          # how unusual a month must be (vs prior 6) to be flagged
+model: claude-sonnet-5-5  # used only if ANTHROPIC_API_KEY is set
+
+# ---- 2. SEMANTIC LAYER: define each metric ONCE. SQL must return columns m (YYYY-MM) and v ----
+metrics:
+  revenue:  {label: Revenue,        fmt: money, up_good: true,  sql: "SELECT strftime('%Y-%m',date) m, SUM(amount) v FROM sales GROUP BY m ORDER BY m"}
+  avg_deal: {label: Avg line size,  fmt: money, up_good: true,  sql: "SELECT strftime('%Y-%m',date) m, AVG(amount) v FROM sales GROUP BY m ORDER BY m"}
+  expenses: {label: Opex,           fmt: money, up_good: false, sql: "SELECT strftime('%Y-%m',date) m, SUM(amount) v FROM expenses GROUP BY m ORDER BY m"}
+  margin:   {label: Operating margin, fmt: pct, up_good: true,
+             sql: "SELECT r.m m, (r.v-e.v)/r.v v FROM (SELECT strftime('%Y-%m',date) m, SUM(amount) v FROM sales GROUP BY m) r JOIN (SELECT strftime('%Y-%m',date) m, SUM(amount) v FROM expenses GROUP BY m) e ON r.m=e.m ORDER BY m"}
+  tickets:  {label: Support tickets, fmt: int, up_good: false, sql: "SELECT strftime('%Y-%m',date) m, SUM(tickets) v FROM tickets GROUP BY m ORDER BY m"}
+  csat:     {label: CSAT (1-5),     fmt: num, up_good: true,  sql: "SELECT strftime('%Y-%m',date) m, AVG(csat) v FROM tickets GROUP BY m ORDER BY m"}
+
+# Breakdowns: return label, v (latest month), p (prior month)
+breakdowns:
+  revenue_by_region:
+    title: Revenue by region (latest month)
+    fmt: money
+    sql: "WITH t AS (SELECT strftime('%Y-%m',date) m, region k, amount a FROM sales), mx AS (SELECT MAX(m) l FROM t) SELECT k label, SUM(CASE WHEN m=l THEN a ELSE 0 END) v, SUM(CASE WHEN m=(SELECT MAX(m) FROM t WHERE m<l) THEN a ELSE 0 END) p FROM t, mx GROUP BY k ORDER BY v DESC"
+  revenue_by_product:
+    title: Revenue by product (latest month)
+    fmt: money
+    sql: "WITH t AS (SELECT strftime('%Y-%m',date) m, product k, amount a FROM sales), mx AS (SELECT MAX(m) l FROM t) SELECT k label, SUM(CASE WHEN m=l THEN a ELSE 0 END) v, SUM(CASE WHEN m=(SELECT MAX(m) FROM t WHERE m<l) THEN a ELSE 0 END) p FROM t, mx GROUP BY k ORDER BY v DESC"
+  opex_by_category:
+    up_good: false
+    title: Opex by category (latest month)
+    fmt: money
+    sql: "WITH t AS (SELECT strftime('%Y-%m',date) m, category k, amount a FROM expenses), mx AS (SELECT MAX(m) l FROM t) SELECT k label, SUM(CASE WHEN m=l THEN a ELSE 0 END) v, SUM(CASE WHEN m=(SELECT MAX(m) FROM t WHERE m<l) THEN a ELSE 0 END) p FROM t, mx GROUP BY k ORDER BY v DESC"
+  tickets_by_driver:
+    up_good: false
+    title: Tickets by driver (latest month)
+    fmt: int
+    sql: "WITH t AS (SELECT strftime('%Y-%m',date) m, driver k, tickets a FROM tickets), mx AS (SELECT MAX(m) l FROM t) SELECT k label, SUM(CASE WHEN m=l THEN a ELSE 0 END) v, SUM(CASE WHEN m=(SELECT MAX(m) FROM t WHERE m<l) THEN a ELSE 0 END) p FROM t, mx GROUP BY k ORDER BY v DESC"
+
+# ---- 3. ROLE VIEWS: what each audience sees ----
+roles:
+  Executive:  {metrics: [revenue, margin, expenses, tickets], line: revenue,  bar: revenue_by_region}
+  Sales:      {metrics: [revenue, avg_deal],                  line: revenue,  bar: revenue_by_region}
+  Finance:    {metrics: [expenses, margin, revenue],          line: expenses, bar: opex_by_category}
+  Operations: {metrics: [tickets, csat],                      line: tickets,  bar: tickets_by_driver}

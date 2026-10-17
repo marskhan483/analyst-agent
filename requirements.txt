@@ -1,0 +1,6 @@
+pandas
+openpyxl
+pyyaml
+numpy
+sqlalchemy
+anthropic   # optional: enables AI-written insights and the Ask feature

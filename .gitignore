@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+dashboard.html
+data/*.db
+data/*.xlsx
+data/*.csv
+!data/.gitkeep
+queries.log

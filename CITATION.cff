@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+title: "AI Analyst Agent"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - name: "Mars Khan"
+date-released: "2026-10-17"
+license: MIT
+repository-code: "https://github.com/marskhan483/analyst-agent"
